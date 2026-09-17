@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.env
+.env.*
+!.env.production
+coverage
+.verification
+*.log
+*.tsbuildinfo
+AGENTS.MD
+docs
