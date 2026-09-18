@@ -1,6 +1,6 @@
 # Backoffice Facultad
 
-Frontend administrativo. Fases 1–2: estructura, navegación, shells, autenticación mock y permisos. `AGENTS.MD` es la especificación permanente. Los CRUD y las exportaciones corresponden a fases posteriores.
+Frontend administrativo. Fases 1–5: estructura, autenticación mock, permisos, núcleo académico, cursadas, inscripciones, RFID, asistencia, evaluaciones, resultados y cuotas. `AGENTS.MD` es la especificación permanente. Importación/exportación corresponde a la Fase 6.
 
 ## Desarrollo local (Windows o Linux)
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Abrir http://localhost:5173. Los mocks están activados en desarrollo y test, con estado únicamente en memoria. Sedes conserva el ejemplo mínimo de consulta con una lista vacía.
+Abrir http://localhost:5173. Los mocks están activados en desarrollo y test, con datos ficticios y cambios únicamente en memoria. No ingresar datos personales reales; recargar reinicia la demostración.
 
 ```sh
 npm run lint
@@ -65,15 +65,54 @@ La seguridad real queda a cargo del backend: cookies HttpOnly/Secure/SameSite, C
 
 - `src/app`, `src/router`, `src/pages`: proveedores, catálogo único de navegación y shells.
 - `src/components`: layout, controles de formulario y estados reutilizables.
-- `src/features/sedes`: ejemplo mínimo de hook/query y contrato validado con Zod.
+- `src/features/academic`: schemas, relaciones, catálogo de campos, hooks y pantallas compartidas de los diez módulos del núcleo académico.
 - `src/features/auth`: formularios, schemas, sesión y guards; `src/services/auth.ts` selecciona HTTP o mock sin cambios en la UI.
 - `src/services` → `src/lib/api-client.ts`: interfaz de servicios y HTTP con Axios. La UI nunca consume Axios directamente.
 - `src/mocks`: implementaciones alternativas de los servicios, seleccionadas centralmente según el ambiente.
 - `src/schemas`, `src/utils`, `src/test`: validaciones compartidas, formato argentino de fechas y configuración de pruebas.
 
-El contrato inicial de `GET /api/v1/sedes` es `{ "data": [{ "id": "...", "nombre": "...", "direccion": "...", "estado": "ACTIVO" }] }`. La UI solo presenta el estado de la consulta. Cambiar `VITE_USE_MOCKS=false` utiliza HTTP sin modificar componentes. Axios utiliza `withCredentials` para las cookies del backend.
+Cambiar `VITE_USE_MOCKS=false` utiliza HTTP sin modificar componentes. Axios utiliza `withCredentials` para las cookies del backend.
+
+## Núcleo académico (Fase 3)
+
+Sedes, edificios, aulas, carreras, planes de estudio, materias, períodos académicos, comisiones, alumnos y profesores comparten búsqueda, filtros, ordenamiento, paginación, detalle y formularios RHF/Zod. Administrador puede crear, editar, desactivar mediante el campo Estado y confirmar bajas lógicas. Secretaría dispone de consulta; las rutas de escritura también están protegidas.
+
+Los mocks validan unicidad de identificadores (RFID compartido entre alumnos y profesores), carrera/plan del alumno, sede/edificio del aula y referencias existentes. Una baja con registros vinculados se rechaza; los identificadores dados de baja siguen reservados. Las materias admiten varios planes y correlativas previas simples, sin motor de correlatividades. Los mocks no constituyen seguridad ni persistencia real.
+
+Contratos en `src/services/academic-service.ts` y `src/features/academic/schemas.ts`. Para cada recurso bajo `/api/v1`:
+
+| Método | Contrato |
+| --- | --- |
+| `GET /recurso` | `search`, `estado`, filtros por campo, `sortBy`, `sortOrder`, `page`, `pageSize` → `{ data: Registro[], total, page, pageSize }`. Excluye bajas lógicas. |
+| `GET /recurso/:id` | `{ data: Registro }`; 404 si no existe o está dado de baja. |
+| `POST /recurso` | Datos del formulario → `{ data: Registro }`. |
+| `PUT /recurso/:id` | Datos del formulario → `{ data: Registro }`. |
+| `DELETE /recurso/:id` | Baja lógica (`deletedAt`); 204. No es eliminación física. |
+
+Cada registro incluye `id`, `createdAt`, `updatedAt` y `deletedAt`. Fechas de calendario: ISO `YYYY-MM-DD`; auditoría: ISO con hora. Los años se denominan `anio`/`anioVigencia`; las asociaciones de materia son `planEstudioIds` y `correlativaIds`. El backend deberá validar permisos, unicidad e integridad de forma autoritativa.
+
+## Cursadas e inscripciones (Fase 4)
+
+`/cursadas` y `/inscripciones` utilizan los mismos contratos de listado, detalle y CRUD. Una cursada combina materia, comisión y período (combinación única); admite de cero a tres profesores distintos y requiere al menos un horario. El formulario permite agregar, editar y retirar horarios, con distintas aulas por encuentro. Valida horas `HH:mm`, inicio anterior al fin y ausencia de solapamientos dentro de la propia cursada. La detección de conflictos entre cursadas queda para una etapa posterior.
+
+El cuerpo de cursada contiene `materiaId`, `comisionId`, `periodoAcademicoId`, `profesorIds`, `horarios` y `estado`. Cada horario contiene `id` estable, `diaSemana` (1=lunes a 7=domingo), `horaInicio`, `horaFin` y `aulaId`; `cursadaId` queda determinado por el agregado. Un único POST/PUT guarda el conjunto atómicamente. Los mocks conservan en memoria los horarios retirados con baja lógica y su pertenencia; la API deberá hacer lo mismo y validar los identificadores recibidos.
+
+El cupo se deriva del aula de menor capacidad; cada inscripción activa ocupa un lugar, independientemente de su condición académica. Se valida también al reactivar o trasladar inscripciones, modificar horarios o reducir aulas. Una inscripción requiere una materia del plan del alumno. Registros activos requieren referencias activas; antes de desactivar una cursada con inscripciones activas hay que inactivarlas. Las inscripciones separan `estado` (`ACTIVO`/`INACTIVO`) de `condicionAcademica` (`CURSANDO`, `REGULAR`, `LIBRE`, `PROMOCIONADO`, `APROBADO`, `DESAPROBADO`). La pareja alumno+cursada sigue reservada tras una baja lógica; para suspensiones temporales usar Inactivo y luego editar la misma inscripción.
+
+Administrador puede gestionar estos módulos; Secretaría solo consulta, busca, filtra, ordena y pagina. El detalle de la cursada ofrece horarios, cupo y acceso al listado filtrado de inscripciones. No hay backend ni garantías de concurrencia entre clientes: las validaciones definitivas y transacciones corresponden a la API futura.
 
 Fechas de presentación: `DD/MM/YYYY`; zona `America/Argentina/Cordoba`. Los días sin hora conservan su fecha de calendario.
+
+## Gestión académica y RFID (Fase 5)
+
+`src/features/gestion` agrega las reglas y vistas específicas sobre los formularios, tablas y servicios compartidos. Administrador administra y confirma bajas lógicas; Secretaría consulta. No incluye backend, lectura de tarjetas ni Raspberry Pi.
+
+- **RFID:** consulta exacta en `/rfid`, normalizada a mayúsculas. La asociación se modifica en la ficha del alumno/profesor; se valida unicidad entre ambos tipos de persona, incluyendo bajas. El contrato futuro `GET /personas/por-rfid/:rfid` devuelve `{ data: { tipo: "ALUMNO" | "PROFESOR", persona } }` o `{ data: null }`.
+- **Asistencia:** UI `/asistencia`, REST `/asistencias`. Alta manual, búsqueda y filtros por alumno, cursada, fecha, estado y origen. Exige inscripción previa y horario de la cursada coincidente con el día y período. No admite fechas futuras ni duplicados alumno+horario+fecha. Las correcciones conservan el origen `MANUAL`/`RFID` y actualizan auditoría. La demostración incluye registros RFID ficticios.
+- **Evaluaciones/resultados:** recursos `/evaluaciones` y `/resultados`, con los cuatro tipos previstos y una nota por evaluación+alumno inscripto. Notas de 0 a 10, decimales admitidos, aprobación desde 6; el estado se calcula. No se cargan notas de evaluaciones futuras. Las evaluaciones pueden activarse/inactivarse. La condición académica y el estado de la inscripción se administran explícitamente en Inscripciones, accesible desde el resultado; una nota no promociona automáticamente al alumno. El estado de la oferta se administra en Cursadas.
+- **Cuotas:** recurso `/cuotas`; una cuota por alumno+año+mes, importe positivo en ARS con hasta dos decimales. `fechaPago` vacía representa falta de pago. Registrar o corregir esa fecha recalcula `PAGADA`; sin pago, se calcula `VENCIDA` si el vencimiento es anterior al día actual de Córdoba, o `PENDIENTE` en otro caso. La ficha del alumno deriva su situación de las cuotas vigentes, sin duplicarla en Alumno.
+
+Los recursos usan el contrato CRUD/paginado anterior y auditoría/baja lógica. Se bloquean cambios o bajas que dejan historial sin inscripción, evaluación u horario; las claves de registros dados de baja siguen reservadas. Las fechas se transportan en ISO y se muestran en formato argentino. La API futura debe repetir validaciones, derivar estados, comprobar permisos y preservar integridad en transacciones; los mocks solamente duran hasta recargar.
 
 ## Docker
 

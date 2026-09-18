@@ -13,7 +13,11 @@ export function AppLayout() {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const mainRef = useRef<HTMLElement>(null)
   const previousPath = useRef(pathname)
-  const currentModule = modules.find((module) => module.path === canonicalPath)
+  const currentModule = modules.find(
+    (module) =>
+      module.path === canonicalPath ||
+      canonicalPath.startsWith(`${module.path}/`),
+  )
   const title =
     canonicalPath === '/'
       ? 'Inicio'

@@ -10,8 +10,13 @@ describe('Selección central del servicio', () => {
     vi.stubEnv('VITE_USE_MOCKS', 'true')
     const { apiClient } = await import('../lib/api-client')
     const request = vi.spyOn(apiClient, 'get')
-    const { sedesService } = await import('./index')
-    expect(await sedesService.list()).toEqual([])
+    const { academicServices } = await import('./index')
+    const { defaultListParams } = await import(
+      '../features/academic/use-academic'
+    )
+    expect(
+      (await academicServices.sedes.list(defaultListParams('sedes'))).total,
+    ).toBe(2)
     expect(request).not.toHaveBeenCalled()
   })
 
@@ -22,8 +27,16 @@ describe('Selección central del servicio', () => {
     const request = vi
       .spyOn(apiClient, 'get')
       .mockRejectedValue(new Error('Sin API'))
-    const { sedesService } = await import('./index')
-    await expect(sedesService.list()).rejects.toThrow('Sin API')
-    expect(request).toHaveBeenCalledWith('/sedes', {})
+    const { academicServices } = await import('./index')
+    const { defaultListParams } = await import(
+      '../features/academic/use-academic'
+    )
+    await expect(
+      academicServices.sedes.list(defaultListParams('sedes')),
+    ).rejects.toThrow('Sin API')
+    expect(request).toHaveBeenCalledWith(
+      '/sedes',
+      expect.objectContaining({ params: expect.objectContaining({ page: 1 }) }),
+    )
   })
 })

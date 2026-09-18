@@ -19,8 +19,7 @@ describe('Navegación de la foundation', () => {
         within(navigation).getByRole('link', { name: label }),
       ).toHaveAttribute('aria-current', 'page')
       expect(document.title).toBe(`${label} | Backoffice Facultad`)
-      if (path === '/sedes')
-        await screen.findByText('Todavía no hay sedes para mostrar')
+      if (path === '/sedes') await screen.findByText('Sede Central')
     },
   )
 

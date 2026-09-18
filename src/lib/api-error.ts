@@ -23,6 +23,11 @@ export function toApiError(error: unknown): ApiError {
       )
     if (status === 404)
       return new ApiError('El recurso solicitado no está disponible.', status)
+    if (status === 409)
+      return new ApiError(
+        'Los datos entran en conflicto con otro registro o tienen relaciones vinculadas. Revisalos e intentá nuevamente.',
+        status,
+      )
     if (status === 422)
       return new ApiError(
         'Revisá los datos enviados e intentá nuevamente.',

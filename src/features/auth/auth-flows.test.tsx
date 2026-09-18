@@ -14,7 +14,7 @@ import type { AuthSession } from './auth-schemas'
 
 async function enterCredentials(email = mockAdmin.email) {
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText('Email'), email)
+  await user.type(await screen.findByLabelText('Email'), email)
   await user.type(screen.getByLabelText('Contraseña'), 'contraseña ficticia')
   await user.click(screen.getByRole('button', { name: 'Continuar' }))
   await screen.findByRole('heading', { name: 'Verificá tu identidad' })

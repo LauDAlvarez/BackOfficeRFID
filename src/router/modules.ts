@@ -149,6 +149,20 @@ export const modules = [
     icon: 'wallet',
   },
   {
+    path: '/resultados',
+    label: 'Resultados',
+    description: 'Notas y aprobación de las evaluaciones.',
+    group: 'gestion',
+    icon: 'clipboard',
+  },
+  {
+    path: '/rfid',
+    label: 'RFID',
+    description: 'Asociación de tarjetas con alumnos y profesores.',
+    group: 'personas',
+    icon: 'people',
+  },
+  {
     path: '/usuarios',
     permission: 'manageUsers',
     label: 'Usuarios administrativos',

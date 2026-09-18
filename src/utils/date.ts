@@ -1,5 +1,9 @@
 export const APP_TIME_ZONE = 'America/Argentina/Cordoba'
 
+export function todayInCordoba(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: APP_TIME_ZONE })
+}
+
 const dateFormatter = new Intl.DateTimeFormat('es-AR', {
   timeZone: APP_TIME_ZONE,
   day: '2-digit',
