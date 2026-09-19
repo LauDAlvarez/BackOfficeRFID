@@ -45,12 +45,32 @@ export function useAcademicLookups(domain: AcademicDomain) {
       const entries = await Promise.all(
         dependencies.map(async (related) => {
           const records: AcademicRecord[] = []
+          const seen = new Set<string>()
+          let expectedTotal: number | undefined
           let page = 1
           while (true) {
             const result = await academicServices[related].list(
               { ...defaultListParams(related), page, pageSize: 100 },
               signal,
             )
+            if (
+              result.page !== page ||
+              (expectedTotal !== undefined &&
+                result.total !== expectedTotal) ||
+              records.length + result.data.length > result.total ||
+              (!result.data.length && records.length < result.total)
+            )
+              throw new ApiError(
+                'La consulta de referencias cambió o devolvió páginas incompletas. Volvé a intentarlo.',
+              )
+            expectedTotal = result.total
+            for (const record of result.data) {
+              if (seen.has(record.id))
+                throw new ApiError(
+                  'La consulta de referencias devolvió registros repetidos. Volvé a intentarlo.',
+                )
+              seen.add(record.id)
+            }
             records.push(...result.data)
             if (!result.data.length || records.length >= result.total) break
             page += 1
@@ -65,7 +85,8 @@ export function useAcademicLookups(domain: AcademicDomain) {
 export function useAcademicMutations(domain: AcademicDomain) {
   const client = useQueryClient()
   const { can } = usePermissions()
-  const invalidate = () => client.invalidateQueries({ queryKey: ['academic'] })
+  const invalidate = () =>
+    client.invalidateQueries({ queryKey: ['academic'] })
   const save = useMutation({
     mutationFn: ({
       id,
@@ -86,7 +107,10 @@ export function useAcademicMutations(domain: AcademicDomain) {
   const remove = useMutation({
     mutationFn: (id: string) => {
       if (!can('delete'))
-        throw new ApiError('No tenés permiso para dar de baja registros.', 403)
+        throw new ApiError(
+          'No tenés permiso para dar de baja registros.',
+          403,
+        )
       return academicServices[domain].softDelete(id)
     },
     onSuccess: invalidate,

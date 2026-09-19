@@ -1,6 +1,6 @@
 # Backoffice Facultad
 
-Frontend administrativo. Fases 1–5: estructura, autenticación mock, permisos, núcleo académico, cursadas, inscripciones, RFID, asistencia, evaluaciones, resultados y cuotas. `AGENTS.MD` es la especificación permanente. Importación/exportación corresponde a la Fase 6.
+Frontend administrativo con núcleo académico, cursadas, inscripciones, RFID, asistencia, evaluaciones, resultados, cuotas e importación/exportación. Fase 7: hardening del sistema existente. `AGENTS.MD` es la especificación permanente; verificaciones y limitaciones del entorno en [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## Desarrollo local (Windows o Linux)
 
@@ -42,7 +42,7 @@ Las variables `VITE_` se incorporan al bundle al compilar: nunca colocar secreto
 - Sesión: 30 minutos; desafío: 5 minutos y hasta 5 intentos; enlace de reset: 15 minutos y un solo uso. La recuperación muestra un enlace de demostración para las cuentas anteriores, sin enviar emails ni modificar contraseñas.
 - Al recargar se pierde todo el estado mock. No se genera TOTP, QR, secretos ni criptografía: la aplicación recibe códigos de una aplicación previamente vinculada por el backend futuro.
 
-`src/features/auth/permissions.ts` centraliza permisos; `RequireAuth`, `RequirePermission` y `Can` controlan rutas y elementos. Secretaría puede leer y tiene permisos CSV/Excel, pero no accede a Usuarios administrativos ni tiene permisos de escritura o importación. La exportación efectiva se implementará en la Fase 6.
+`src/features/auth/permissions.ts` centraliza permisos; `RequireAuth`, `RequirePermission` y `Can` controlan rutas y elementos. Secretaría puede consultar y exportar CSV/Excel, pero no accede a Usuarios administrativos ni tiene permisos de escritura o importación. Los hooks comprueban permisos antes de mutar o transferir datos.
 
 ## Contrato de autenticación futuro
 
@@ -67,6 +67,7 @@ La seguridad real queda a cargo del backend: cookies HttpOnly/Secure/SameSite, C
 - `src/components`: layout, controles de formulario y estados reutilizables.
 - `src/features/academic`: schemas, relaciones, catálogo de campos, hooks y pantallas compartidas de los diez módulos del núcleo académico.
 - `src/features/auth`: formularios, schemas, sesión y guards; `src/services/auth.ts` selecciona HTTP o mock sin cambios en la UI.
+- `src/features/transfers`: importación CSV/XLSX, plantillas, validaciones, preview y exportación; `src/services/transfers.ts` selecciona HTTP o mock.
 - `src/services` → `src/lib/api-client.ts`: interfaz de servicios y HTTP con Axios. La UI nunca consume Axios directamente.
 - `src/mocks`: implementaciones alternativas de los servicios, seleccionadas centralmente según el ambiente.
 - `src/schemas`, `src/utils`, `src/test`: validaciones compartidas, formato argentino de fechas y configuración de pruebas.
@@ -113,6 +114,28 @@ Fechas de presentación: `DD/MM/YYYY`; zona `America/Argentina/Cordoba`. Los dí
 - **Cuotas:** recurso `/cuotas`; una cuota por alumno+año+mes, importe positivo en ARS con hasta dos decimales. `fechaPago` vacía representa falta de pago. Registrar o corregir esa fecha recalcula `PAGADA`; sin pago, se calcula `VENCIDA` si el vencimiento es anterior al día actual de Córdoba, o `PENDIENTE` en otro caso. La ficha del alumno deriva su situación de las cuotas vigentes, sin duplicarla en Alumno.
 
 Los recursos usan el contrato CRUD/paginado anterior y auditoría/baja lógica. Se bloquean cambios o bajas que dejan historial sin inscripción, evaluación u horario; las claves de registros dados de baja siguen reservadas. Las fechas se transportan en ISO y se muestran en formato argentino. La API futura debe repetir validaciones, derivar estados, comprobar permisos y preservar integridad en transacciones; los mocks solamente duran hasta recargar.
+
+## Importación y exportación (Fase 6)
+
+Administrador puede importar alumnos y profesores desde sus listados. Las pantallas incluyen plantillas CSV/XLSX, columnas esperadas, previsualización paginada, errores por fila y confirmación. Admiten CSV UTF-8 con coma o punto y coma, y XLSX con una hoja, sin fórmulas ni celdas combinadas; máximo 2 MB y 1000 registros. Identificadores como texto, fechas `YYYY-MM-DD` y estados `ACTIVO`/`INACTIVO`. Los alumnos usan `carrera_codigo` y `plan_codigo`, vinculados a registros existentes.
+
+Se validan estructura, schemas, relaciones y duplicados dentro del archivo y contra los datos existentes, incluyendo RFID entre alumnos y profesores y bajas lógicas. El mock revalida al confirmar y aplica el lote completo en memoria, sin altas parciales ni actualización de registros existentes.
+
+Ambos roles exportan CSV y XLSX desde los listados académicos, respetando búsqueda, filtros y orden en todas las páginas. Las exportaciones incluyen etiquetas de relaciones y fechas `DD/MM/YYYY`; son informes, no plantillas de reimportación. CSV neutraliza texto interpretable como fórmula. ExcelJS se carga al usar XLSX; su versión y dependencias están fijadas en el lockfile.
+
+Contratos en `src/services/transfer-service.ts`, bajo `/api/v1`:
+
+| Método | Contrato |
+| --- | --- |
+| `POST /alumnos/importaciones/validar` (o `/profesores/...`) | `{ headers, rows: [{ line, values, errors }] }` → `{ data: { headers, rows, errors } }`. |
+| `POST /alumnos/importaciones` (o `/profesores/...`) | Mismo lote → `{ data: { status: "IMPORTED", imported } }` o `{ data: { status: "INVALID", preview } }`. |
+| `GET /recurso/exportar` | `search`, `estado`, filtros, `sortBy`, `sortOrder`, `format=csv\|xlsx`; devuelve el archivo completo con MIME correspondiente, sin parámetros de página. |
+
+La API futura debe repetir las validaciones, comprobar permisos y aplicar la importación en una transacción. Los mocks no proporcionan persistencia ni seguridad real.
+
+## Hardening (Fase 7)
+
+Se revisaron permisos, schemas, errores recuperables, estados de carga/vacío, navegación y estilos responsive. Las consultas de referencias y exportaciones abortan ante páginas incompletas, repetidas o totales inconsistentes, sin entregar resultados parciales. Las pruebas cubren reintentos de importación, permisos al invocar hooks directamente y cierre del menú móvil al pasar a escritorio. La comprobación visual y Docker requieren los entornos indicados en el estado de implementación.
 
 ## Docker
 

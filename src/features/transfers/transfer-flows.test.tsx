@@ -189,15 +189,52 @@ describe('Importación administrativa', () => {
         expect.objectContaining({ filename: 'plantilla-alumnos.csv' }),
       ),
     )
-    await user.click(
-      screen.getByRole('button', { name: 'Descargar plantilla XLSX' }),
-    )
-    await waitFor(() =>
-      expect(downloads.downloadFile).toHaveBeenCalledWith(
-        expect.objectContaining({ filename: 'plantilla-alumnos.xlsx' }),
-      ),
+    const excelButton = screen.getByRole('button', {
+      name: 'Descargar plantilla XLSX',
+    })
+    await waitFor(() => expect(excelButton).toBeEnabled())
+    await user.click(excelButton)
+    // La primera conversión incluye la carga asíncrona de ExcelJS.
+    await waitFor(
+      () =>
+        expect(downloads.downloadFile).toHaveBeenCalledWith(
+          expect.objectContaining({ filename: 'plantilla-alumnos.xlsx' }),
+        ),
+      { timeout: 5000 },
     )
     expect(transferService.commit).not.toHaveBeenCalled()
+  })
+  it('conserva la previsualización y permite reintentar un fallo al confirmar con un único aviso accesible', async () => {
+    const user = userEvent.setup()
+    await renderApp('/profesores/importar')
+    await user.upload(
+      screen.getByLabelText('Archivo CSV o XLSX'),
+      importFile('profesores'),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: 'Importar 1 registros' }),
+    )
+    vi.mocked(transferService.commit).mockRejectedValueOnce(
+      new ApiError('No se pudo importar.'),
+    )
+    const dialog = screen.getByRole('dialog', {
+      name: 'Confirmar importación',
+    })
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Confirmar importación' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo importar.',
+    )
+    expect(within(dialog).getByRole('alert')).toBeInTheDocument()
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('table')).toHaveTextContent('María')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Confirmar importación' }),
+    )
+    await screen.findByText(/Se importaron 1 registros/)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(transferService.commit).toHaveBeenCalledTimes(2)
   })
 })
 describe('Permisos por rol y exportación', () => {

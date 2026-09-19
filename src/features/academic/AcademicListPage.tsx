@@ -86,6 +86,11 @@ export function AcademicListPage({ domain }: { domain: AcademicDomain }) {
         <AcademicLoading />
       ) : (
         <>
+          {query.isFetching && (
+            <p role="status" className="mb-3 text-sm text-slate-600">
+              Actualizando registros…
+            </p>
+          )}
           {query.data.data.length === 0 ? (
             <StatePanel
               title="No hay registros para mostrar"

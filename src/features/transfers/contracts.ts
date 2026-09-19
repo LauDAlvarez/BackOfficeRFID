@@ -2,6 +2,10 @@ import { z } from 'zod'
 
 export type ImportDomain = 'alumnos' | 'profesores'
 export type TransferFormat = 'csv' | 'xlsx'
+export const transferMimeTypes: Record<TransferFormat, string> = {
+  csv: 'text/csv',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+}
 export const MAX_IMPORT_ROWS = 1000
 export const MAX_FILE_BYTES = 2 * 1024 * 1024
 export const MAX_COLUMNS = 30

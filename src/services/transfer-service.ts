@@ -6,6 +6,7 @@ import {
   importPreviewSchema,
   importResultSchema,
   importTableSchema,
+  transferMimeTypes,
   type DownloadFile,
   type ImportDomain,
   type ImportPreview,
@@ -68,6 +69,7 @@ export const httpTransferService: TransferService = {
     const response = await apiClient.get<Blob>(`/${resource}/exportar`, {
       params: { ...filters, search, estado, sortBy, sortOrder, format },
       responseType: 'blob',
+      headers: { Accept: transferMimeTypes[format] },
       ...(signal ? { signal } : {}),
     })
     if (

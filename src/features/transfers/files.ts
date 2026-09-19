@@ -7,14 +7,13 @@ import {
   MAX_COLUMNS,
   MAX_FILE_BYTES,
   MAX_IMPORT_ROWS,
+  transferMimeTypes,
   type DownloadFile,
   type ImportDomain,
   type ImportTable,
   type TransferFormat,
 } from './contracts'
 
-const XLSX_MIME =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export async function createTransferFile(
   rows: ExportCell[][],
   filename: string,
@@ -48,7 +47,9 @@ export async function createTransferFile(
   const buffer = await workbook.xlsx.writeBuffer()
   return {
     filename: `${filename}.xlsx`,
-    blob: new Blob([new Uint8Array(buffer)], { type: XLSX_MIME }),
+    blob: new Blob([new Uint8Array(buffer)], {
+      type: transferMimeTypes.xlsx,
+    }),
   }
 }
 export function createImportTemplate(

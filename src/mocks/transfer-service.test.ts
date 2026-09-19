@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createMockAcademicDatabase } from './academic-service'
 import { createAcademicData } from './academic-data'
 import { canImport, importColumns } from '../features/transfers/contracts'
 import { importTable, importRow, blobText } from '../test/transfer-fixtures'
 import { defaultListParams } from '../features/academic/use-academic'
 import { parseCsv } from '../features/transfers/csv'
+import { createMockTransferService } from './transfer-service'
 
 describe('Importación atómica y validaciones de dominio', () => {
   it.each(['alumnos', 'profesores'] as const)(
@@ -187,6 +188,44 @@ describe('Importación atómica y validaciones de dominio', () => {
   })
 })
 describe('Exportación completa y filtrada', () => {
+  it.each(['repetida', 'vacía', 'total cambiado', 'total excedido'])(
+    'rechaza una página %s sin entregar un archivo parcial',
+    async (failure) => {
+      const data = createAcademicData()
+      const original = createMockAcademicDatabase(data).service('profesores')
+      const row = data.profesores[0]!
+      const list = vi
+        .fn(original.list)
+        .mockResolvedValueOnce({
+          data: [row],
+          total: 2,
+          page: 1,
+          pageSize: 100,
+        })
+        .mockResolvedValueOnce({
+          data:
+            failure === 'vacía'
+              ? []
+              : failure === 'total excedido'
+                ? [
+                    { ...row, id: 'otra' },
+                    { ...row, id: 'extra' },
+                  ]
+                : [row],
+          total: failure === 'total cambiado' ? 3 : 2,
+          page: 2,
+          pageSize: 100,
+        })
+      const service = createMockTransferService(data, () => ({
+        ...original,
+        list,
+      }))
+      await expect(
+        service.export('profesores', defaultListParams('profesores'), 'csv'),
+      ).rejects.toThrow()
+      expect(list).toHaveBeenCalledTimes(2)
+    },
+  )
   it('incluye páginas completas, filtros, orden y excluye bajas', async () => {
     const data = createAcademicData()
     data.profesores = Array.from({ length: 125 }, (_, index) => ({

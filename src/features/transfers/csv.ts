@@ -96,11 +96,13 @@ export function encodeCsv(rows: ExportCell[][]): string {
           .map((value) => {
             let text = String(value)
             // CSV no tiene tipos de celda; impedir evaluación al abrirlo en una planilla.
-            if (
-              typeof value === 'string' &&
-              /^[\s\u0000-\u001f]*[=+@-]/.test(text)
-            )
-              text = `'${text}`
+            if (typeof value === 'string') {
+              const first = Array.from(text).find(
+                (character) =>
+                  character.charCodeAt(0) > 31 && !/\s/u.test(character),
+              )
+              if (first && '=+@-'.includes(first)) text = `'${text}`
+            }
             return `"${text.replaceAll('"', '""')}"`
           })
           .join(','),

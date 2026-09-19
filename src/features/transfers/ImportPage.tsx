@@ -25,7 +25,10 @@ export function ImportPage({ domain }: { domain: ImportDomain }) {
     task.commit.data?.status === 'INVALID'
       ? task.commit.data.preview
       : task.preview.data?.preview
-  const error = task.preview.error ?? task.commit.error ?? task.template.error
+  const error =
+    task.preview.error ??
+    (confirmOpen ? null : task.commit.error) ??
+    task.template.error
   return (
     <>
       <Link
@@ -57,7 +60,7 @@ export function ImportPage({ domain }: { domain: ImportDomain }) {
           </p>
         )}
         <details className="mt-4 text-sm">
-          <summary className="cursor-pointer font-semibold">
+          <summary className="min-h-11 cursor-pointer py-2 font-semibold">
             Ver columnas requeridas
           </summary>
           <ul className="mt-3 grid list-inside list-disc gap-2 sm:grid-cols-2 lg:grid-cols-3">

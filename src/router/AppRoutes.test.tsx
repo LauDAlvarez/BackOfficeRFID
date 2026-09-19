@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderApp } from '../test/render-app'
 import { modules } from './modules'
@@ -49,5 +49,28 @@ describe('Navegación de la foundation', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Profesores' }),
     ).toBeInTheDocument()
+  })
+  it('cierra el menú móvil al pasar a escritorio para no dejar un modal invisible', async () => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    let onResize: () => void = () => {}
+    const removeListener = vi.fn()
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      ...media,
+      matches: true,
+      addEventListener: vi.fn((_type, listener) => {
+        onResize = listener as () => void
+      }),
+      removeEventListener: removeListener,
+    })
+    const user = userEvent.setup()
+    const view = await renderApp()
+    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    expect(
+      screen.getByRole('dialog', { name: 'Menú de navegación' }),
+    ).toBeInTheDocument()
+    act(onResize)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    view.unmount()
+    expect(removeListener).toHaveBeenCalledWith('change', onResize)
   })
 })

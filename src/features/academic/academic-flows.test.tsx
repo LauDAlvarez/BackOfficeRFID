@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderApp } from '../../test/render-app'
@@ -6,7 +12,10 @@ import { academicServices } from '../../services/academic'
 import { mockAcademicServices } from '../../test/mock-academic-services'
 import { createAcademicData } from '../../mocks/academic-data'
 import { academicDomains, type AcademicRecord } from './schemas'
-import { mockSecretary, MOCK_SESSION_DURATION } from '../../mocks/auth-service'
+import {
+  mockSecretary,
+  MOCK_SESSION_DURATION,
+} from '../../mocks/auth-service'
 import { ApiError } from '../../lib/api-error'
 import type { Page } from '../../services/academic-service'
 
@@ -76,6 +85,36 @@ describe('Listados académicos', () => {
     await user.click(screen.getByRole('button', { name: 'Reintentar' }))
     await screen.findByText('Sede Central')
   })
+  it('anuncia la actualización y deshabilita exportar mientras conserva la tabla anterior', async () => {
+    const { client } = await renderApp('/sedes')
+    await screen.findByText('Sede Central')
+    let complete: (page: Page<AcademicRecord>) => void = () => {}
+    vi.mocked(academicServices.sedes.list).mockReturnValueOnce(
+      new Promise((resolve) => {
+        complete = resolve
+      }),
+    )
+    await act(async () => {
+      void client.invalidateQueries({
+        queryKey: ['academic', 'sedes', 'list'],
+      })
+    })
+    expect(
+      await screen.findByText('Actualizando registros…'),
+    ).toHaveAttribute('role', 'status')
+    expect(screen.getByRole('table')).toHaveTextContent('Sede Central')
+    expect(
+      screen.getByRole('button', { name: 'Exportar CSV' }),
+    ).toBeDisabled()
+    await act(async () => {
+      complete({ data: [], total: 0, page: 1, pageSize: 10 })
+    })
+    await screen.findByText('No hay registros para mostrar')
+    expect(
+      screen.queryByText('Actualizando registros…'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeEnabled()
+  })
 })
 
 describe('Edición y bajas académicas', () => {
@@ -89,7 +128,10 @@ describe('Edición y bajas académicas', () => {
       'Cambios guardados',
     )
     await user.click(screen.getByRole('link', { name: 'Editar comisión' }))
-    await user.selectOptions(await screen.findByLabelText('Estado'), 'INACTIVO')
+    await user.selectOptions(
+      await screen.findByLabelText('Estado'),
+      'INACTIVO',
+    )
     await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
     await screen.findByRole('heading', { name: 'Detalle de comisión' })
     expect(await screen.findByText('Inactivo')).toBeInTheDocument()
@@ -128,7 +170,9 @@ describe('Edición y bajas académicas', () => {
   it('impide bajas con referencias y muestra un error sin ocultar el registro', async () => {
     const user = userEvent.setup()
     await renderApp('/sedes/sede-central')
-    await user.click(await screen.findByRole('button', { name: 'Dar de baja' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Dar de baja' }),
+    )
     await user.click(
       screen.getByRole('button', { name: 'Confirmar baja lógica' }),
     )

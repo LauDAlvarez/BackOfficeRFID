@@ -3,6 +3,7 @@ import { apiClient } from '../lib/api-client'
 import { httpTransferService } from './transfer-service'
 import { importTable } from '../test/transfer-fixtures'
 import { defaultListParams } from '../features/academic/use-academic'
+import { transferMimeTypes } from '../features/transfers/contracts'
 
 describe('Contrato REST de importación y exportación', () => {
   it('separa validación y confirmación y propaga cancelación', async () => {
@@ -80,6 +81,7 @@ describe('Contrato REST de importación y exportación', () => {
       expect(get).toHaveBeenCalledWith('/asistencias/exportar', {
         signal,
         responseType: 'blob',
+        headers: { Accept: transferMimeTypes[format] },
         params: {
           cursadaId: 'curso-1',
           search: 'Ana',

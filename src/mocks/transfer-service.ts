@@ -65,6 +65,7 @@ export function createMockTransferService(
     async export(domain, params, format, signal) {
       checkSignal(signal)
       const rows: AcademicRecord[] = []
+      const seen = new Set<string>()
       let page = 1
       let expectedTotal: number | undefined
       while (true) {
@@ -79,11 +80,19 @@ export function createMockTransferService(
         expectedTotal = result.total
         if (
           result.page !== page ||
+          rows.length + result.data.length > result.total ||
           (!result.data.length && rows.length < result.total)
         )
           throw new ApiError(
             'No se pudo completar la exportación de todas las páginas.',
           )
+        for (const row of result.data) {
+          if (seen.has(row.id))
+            throw new ApiError(
+              'Los datos cambiaron durante la exportación. Volvé a intentarlo.',
+            )
+          seen.add(row.id)
+        }
         rows.push(...result.data)
         if (rows.length >= result.total) break
         page++
